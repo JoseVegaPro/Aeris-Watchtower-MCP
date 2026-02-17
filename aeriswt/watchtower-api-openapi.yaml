@@ -1,0 +1,5659 @@
+openapi: "3.0.3"
+
+info:
+  version: 0.3.2
+  title: Aeris IoT Watchtower™ API
+  description: |-
+    ## Introduction
+
+    The Aeris IoT Watchtower™ API provides access to resources such as real-time events, aggregated events, risk assessment reports, and device group operations.
+
+    The Watchtower API is based on the RESTful interface.
+
+    This document covers the following topics:
+    - Overview of the API
+    - Detailed description of all available operations
+    - Access, authentication, and rate limiting
+
+    **Supported operations:**
+    The Aeris IoT Watchtower API delivers security and management functionality based on your subscription package: 
+
+    - Watchtower Analysis - this subscription package provides API access to the following operations: 
+      - Events - Search, retrieve, update (single or bulk), export, metrics
+      - Event configuration - Retrieve event configs, create/update/delete suppression configs
+      - Device - Retrieve the last IMEI changes for devices and the IMEI change history of a device
+      - Device groups - Create, update, delete, search, retrieve details, export groups and group devices
+      - IP flows/Blocked flows/Allowed traffic - Search and export blocked or allowed IP flows
+      - Security reports - Export full PDF, retrieve summary, details, device location, endpoint location, appendix search/export
+      - Scheduled reports - Retrieves the status and download link of a scheduled report
+      - Activity logs - Retrieve activity logs for device groups, events, and event configurations
+      
+      Note: The WT Analysis permission is required to enable Watchtower Analysis API functionality. Watchtower Analysis only provides access to Reporting device groups.
+
+    - Watchtower Protection - this subscription package provides API access to the following operations: 
+      - Device groups - Create, update, delete, search, retrieve details, export groups and group devices
+      - IP flows/Blocked flows/Allowed traffic - Search and export blocked or allowed IP flows
+      - Scheduled reports - Retrieves the status and download link of a scheduled report
+      - Activity logs - Retrieve activity logs for device groups, events, and event configurations
+      - Applications - Create, update, delete, search, and view details of applications
+      - Protection policies - Create, update, delete, search, and view details of allow or block protection policies
+      - Enforcement rules - Create, update, delete, search, retrieve details, activate/deactivate enforcement rules
+      
+      Note: The WT Protection permission is required to enable Watchtower Protection API functionality. Watchtower Protection only provides access to Enforcement device groups. The WT Complete permission provides access to both Reporting and Enforcement device groups.
+      
+    - Watchtower Complete - this subscription package provides API access to all capabilities from both the Analysis and Protection packages. 
+      
+    - Watchtower Monitoring - this subscription package does not include API access. 
+
+    - Watchtower Control - this subscription package does not include API access. 
+
+    ## Access, Authentication and Rate Limiting
+
+    The Watchtower API uses Keycloak for authentication and authorization, with OAuth 2.0 Client Credentials Flow. 
+    
+    #### Obtaining Credentials
+    
+    The credentials are generated manually through a request procedure and transmitted securely to users.
+    
+    For Enterprise customers requesting Watchtower API access, an Aeris representative must open a Support ticket (CSP ticket) on behalf of the customer Administrator. The Support ticket must specify:
+    - The Enterprise name.
+    - The name and email address of the requestor (customer Administrator).
+    - The list of Enterprises for which the request is being issued.
+
+    Once the Support ticket is processed by Aeris, the credentials (`clientId` and `clientSecret`) will be securely provided to the requestor.
+
+    Access to specific resources is determined by the roles associated with each `client_id`.
+
+    #### Rate Limits 
+    
+    The API enforces a rate limit of 10 requests per minute per `client_id` and per `accountId`. Exceeding this limit returns a `429 Too Many Requests` error.
+
+    #### Data Retrieval Limits 
+
+    There is a maximum limit of 10,000 objects per request (downloading events, IP flows, or other resources). Exceeding this limit returns a `413 Request Entity Too Large` error and directs the user towards the relevant export endpoint.
+
+    ## Scheduled Reports
+
+    All `../export` endpoints start the generation of a Scheduled Report with a unique `reportId`. Use the `reportId` to query the dedicated endpoint for download. Reports are available for 10 minutes after generation. After they expire, a new request must be sent to the export endpoint to regenerate the report. 
+
+    ## Activity Logs
+
+    The Activity Logs API provides detailed records of all actions performed within the Watchtower platform. Queries to the `../export` endpoints for activity logs start the generation of an export file with a unique `reportId`. Use the `reportId` to query the dedicated endpoint for download. Reports are available for 10 minutes after generation. After they expire, a new request must be sent to the export endpoint to regenerate the report.
+
+    ## Support
+
+    Each API error response includes a `traceId`. When submitting an incident report to Aeris, include the associated `traceId` for troubleshooting.
+
+  termsOfService: 'https://www.aeris.com/services-terms-of-use/'
+  contact:
+    email: support@aeris.net
+    url: 'https://www.aeris.com/support/'
+  license:
+    name: Aeris License
+    url: 'https://www.aeris.com/services-terms-of-use/'
+  x-audience: external-public
+
+tags:
+  - name: Token
+    description: Endpoint to Acquire and Revoke Token
+  - name: Events
+    description: Endpoints for Awareness Security Events
+  - name: Events Configuration
+    description: Endpoints for configuring Security Events
+  - name: Devices
+    description: Endpoints for Devices
+  - name: Device Groups
+    description: Endpoints for Device Groups
+  - name: Flows
+    description: Endpoints for flows - IP flows/Blocked flows/Allowed traffic
+  - name: Security Report
+    description: Endpoints for Security Reports
+  - name: Scheduled Reports
+    description: Endpoints for downloading Scheduled Reports
+  - name: Activity Logs
+    description: Endpoints for Activity Logs
+  - name: Applications
+    description: Endpoints for Enforcement Applications
+  - name: Protection Policies
+    description: Endpoints for Enforcement Protection Policies
+  - name: Enforcement Rules
+    description: Endpoints for Enforcement Rules
+
+
+security:
+  - oAuth2ClientCredentials: [ ]
+
+servers:
+  - url: https://watchtower-api-prd.aeriscloud.com
+
+paths:
+
+  ########################## Token ################################################
+  /watchtower/v1/auth/token:
+    post:
+      tags:
+        - Token
+      summary: Acquire Access token
+      description: Endpoint to obtain an access token using Client Credentials flow
+      operationId: getToken
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - grant_type
+                - client_id
+                - client_secret
+              properties:
+                grant_type:
+                  type: string
+                  enum: [ client_credentials ]
+                  default: client_credentials
+                client_id:
+                  type: string
+                  example: "operator1.enterprise1.application1"
+                client_secret:
+                  type: string
+                  format: password
+                  example: "tg69jPfKPtBEMzoPP1gNfI2HrCOZylpO"
+      responses:
+        '200':
+          description: Successful token acquisition
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ..."
+                  expires_in:
+                    type: integer
+                    example: 35998
+                  refresh_expires_in:
+                    type: integer
+                    example: 0
+                  token_type:
+                    type: string
+                    example: "Bearer"
+                  not-before-policy:
+                    type: integer
+                    example: 0
+                  scope:
+                    type: string
+                    example: "profile email"
+                  authorized_account_ids:
+                    type: array
+                    items:
+                      type: integer
+                    example: [ 100000001, 100000002, 100000003 ]
+        '400':
+          description: "Missing required parameter: ..."
+        '401':
+          description: Invalid client credentials
+
+
+  ########################## Generic ##############################################
+  /watchtower/v1/scheduled-reports/{reportId}:
+    get:
+      summary: Get Report Status
+      description: Returns the status of the scheduled report, and the download link if the report is ready
+      operationId: getScheduledReport
+      tags:
+        - Scheduled Reports
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/reportId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledReportStatus'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '429':
+          $ref: '#/components/responses/429'
+
+
+  ########################## [Awareness] Events ###################################
+  /watchtower/v1/events:
+    put:
+      summary: Update multiple Events
+      description: |
+        This endpoint allows to update the status of one or more Events.
+      operationId: updateEvents
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+      tags:
+        - Events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventsBulkUpdateRequest'
+      responses:
+        '200':
+          description: Successfully updated
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/events/search:
+    post:
+      summary: Search/Get Events
+      description: This endpoint returns the list of Events.
+      operationId: getEvents
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventsQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedEventsTable'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '413':
+          $ref: '#/components/responses/413'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/events/{eventId}:
+    get:
+      summary: Get details of an Event
+      description: This endpoint retrieves details about an Event.
+      operationId: getEvent
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/eventId'
+      tags:
+        - Events
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    put:
+      summary: Update a single Event (Lifecycle operation)
+      description: >
+        This endpoint allows to update the status of an Event and provide a comment.
+      operationId: updateEvent
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/eventId'
+      tags:
+        - Events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventsUpdateRequest'
+      responses:
+        '200':
+          description: Successfully updated
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/events/export:
+    post:
+      summary: Export Events
+      description: Use this endpoint to export the Events report as CSV.
+      operationId: exportEvents
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventsQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledReport'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/events/metrics/search:
+    post:
+      summary: Get Events Metrics
+      description: >
+        This endpoint returns metrics about Events. Allows you to retrieve arbitrary metrics
+        by supplying dimensions, metrics and filters.
+      operationId: getEventsMetrics
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventsMetricsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedSummaryTable'
+              example:
+                total: 4
+                limit: 10
+                offset: 0
+                schema:
+                  fields:
+                    - name: status
+                      type: STRING
+                    - name: cnt__event_id
+                      type: INTEGER
+                data:
+                  - - "New"
+                    - 15
+                  - - "Saved For Review"
+                    - 5
+                  - - "Dismissed"
+                    - 6
+                  - - "Completed"
+                    - 10
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  # Next release: Events: also Devices
+
+  # Aggregated Events
+  /watchtower/v1/aggregate-events/metrics/search:
+    post:
+      summary: Get Aggregated Events Metrics
+      description: This endpoint returns metrics about Aggregates events.
+      operationId: getAggregatedEventsMetrics
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AggregatedEventsQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedSummaryTable'
+              example:
+                total: 4
+                limit: 10
+                offset: 0
+                lastEvaluatedDate: "2025-10-10"
+                schema:
+                  fields:
+                    - name: status
+                      type: STRING
+                    - name: cnt__event_id
+                      type: INTEGER
+                data:
+                  - - "New"
+                    - 15
+                  - - "Saved For Review"
+                    - 5
+                  - - "Dismissed"
+                    - 6
+                  - - "Completed"
+                    - 10
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+  # Next release: Origin & Destination Matrix
+
+  # Events suppression configs
+  /watchtower/v1/events/configs:
+    get:
+      summary: Get Event Configs
+      description: |
+        This endpoint returns the list of Event configs.
+      operationId: getEventConfigs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+      tags:
+        - Events Configuration
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedEventConfigsTable'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/events/configs/{eventConfigId}/suppression-configs:
+    post:
+      summary: Create an Event suppression configuration
+      description: |
+        This endpoint allows to create a new Event suppression configuration.
+      operationId: createEventSuppressionConfig
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/eventConfigId'
+      tags:
+        - Events Configuration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventSuppressionConfigCreateRequest'
+      responses:
+        '201':
+          description: Created.
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/events/configs/{eventConfigId}/suppression-configs/{suppressionConfigId}:
+    get:
+      summary: Get Event Suppression Configs
+      description: |
+        This endpoint returns detail of event suppression configs.
+      operationId: getEventSuppressionConfigs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/eventConfigId'
+        - $ref: '#/components/parameters/suppressionConfigId'
+      tags:
+        - Events Configuration
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventSuppressionConfig'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    put:
+      summary: Update Event Suppression Configs
+      description: |
+        This endpoint update existing event suppression configs.
+      operationId: updateEventSuppressionConfigs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/eventConfigId'
+        - $ref: '#/components/parameters/suppressionConfigId'
+      tags:
+        - Events Configuration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventSuppressionConfigUpdateRequest'
+      responses:
+        '200':
+          description: Successfully updated
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    delete:
+      summary: Delete Event Suppression Configs
+      description: |
+        This endpoint deletes existing event suppression configs.
+      operationId: deleteEventSuppressionConfigs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/eventConfigId'
+        - $ref: '#/components/parameters/suppressionConfigId'
+        - $ref: '#/components/parameters/undoDismissedEvents'
+      tags:
+        - Events Configuration
+      responses:
+        '200':
+          description: Successfully deleted
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+
+  ########################## [Awareness] SRS ######################################
+
+  # IP Flows
+  /watchtower/v1/ip-flows/search:
+    post:
+      summary: API to get IP Flows
+      description: This endpoint retrieves IP Flows - BLOCKED or ALLOWED
+      operationId: getIPFlows
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Flows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/BlockedIPFlowsSearchRequest'
+                - $ref: '#/components/schemas/AllowedIPFlowsSearchRequest'
+              discriminator:
+                propertyName: flowType
+                mapping:
+                  BLOCKED: '#/components/schemas/BlockedIPFlowsSearchRequest'
+                  ALLOWED: '#/components/schemas/AllowedIPFlowsSearchRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedFlows'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '413':
+          $ref: '#/components/responses/413'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/ip-flows/export:
+    post:
+      summary: API for exporting IP Flows
+      description: This endpoint exports IP Flows as scheduled report
+      operationId: exportIPFlows
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Flows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/BlockedIPFlowsSearchRequest'
+                - $ref: '#/components/schemas/AllowedIPFlowsSearchRequest'
+              discriminator:
+                propertyName: flowType
+                mapping:
+                  BLOCKED: '#/components/schemas/BlockedIPFlowsSearchRequest'
+                  ALLOWED: '#/components/schemas/AllowedIPFlowsSearchRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledReport'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+  # Blocked Flows
+  /watchtower/v1/blocked-flows/search:
+    post:
+      summary: API to get Blocked Flows
+      description: This endpoint retrieves Blocked Flows
+      operationId: searchBlockedFlows
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Flows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockedFlowsSearchRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedBlockedFlows'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '413':
+          $ref: '#/components/responses/413'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/blocked-flows/export:
+    post:
+      summary: API to export Blocked Flows
+      description: This endpoint exports Blocked Flows as CSV with Scheduled Report
+      operationId: exportBlockedFlows
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Flows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockedFlowsSearchRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledReport'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '413':
+          $ref: '#/components/responses/413'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+  # Allowed Traffic
+  /watchtower/v1/allowed-traffic/search:
+    post:
+      summary: API to get Allowed Traffic
+      description: This endpoint retrieves Allowed Traffic
+      operationId: searchAllowedTraffic
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Flows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllowedTrafficSearchRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedAllowedTraffic'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '413':
+          $ref: '#/components/responses/413'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/allowed-traffic/export:
+    post:
+      summary: API to export Allowed Traffic
+      description: This endpoint exports Allowed Traffic as CSV with Scheduled Report
+      operationId: exportAllowedTraffic
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      tags:
+        - Flows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllowedTrafficSearchRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledReport'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '413':
+          $ref: '#/components/responses/413'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+  # Next release:
+  # /v2.0/security/accounts/{accountId}/endpoints/search
+  # /v2.0/security/accounts/{accountId}/endpoints/export
+  # /v2.0/security/accounts/{accountId}/devices/search
+  # /v2.0/security/accounts/{accountId}/devices/export
+
+  # Device Changes
+  /watchtower/v1/devices/imei-change:
+    get:
+      summary: Retrieve Devices' Last IMEI changes.
+      description: >
+        This endpoint provides a list of Devices' last IMEI changes within the
+        time range.
+      operationId: getDevicesChanges
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+      tags:
+        - Devices
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedDeviceImeiChanges'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/devices/{deviceId}/imei-change:
+    get:
+      summary: Retrieve IMEI change history of a device.
+      description: >
+        This endpoint provides IMEI change history for a device within the time
+        range.
+      operationId: getDeviceChanges
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/deviceId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+      tags:
+        - Devices
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedDeviceImeiChanges'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+
+  ########################## [Awareness] DeviceGroups #############################
+
+  /watchtower/v1/device-groups:
+    post:
+      summary: Create a new device group
+      operationId: createDeviceGroup
+      tags:
+        - Device Groups
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceGroupCreateRequest'
+      responses:
+        '201':
+          description: Device group created successfully
+          content:
+            application/json:
+              schema:
+                type: integer
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/device-groups/search:
+    post:
+      summary: Get device groups
+      tags:
+        - Device Groups
+      operationId: getDeviceGroups
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceGroupQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedDeviceGroupTable'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '413':
+          $ref: '#/components/responses/413'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/device-groups/{deviceGroupId}:
+    get:
+      summary: Get device group details
+      tags:
+        - Device Groups
+      operationId: getDeviceGroup
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/deviceGroupId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceGroup'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    put:
+      summary: Update an existing device group
+      operationId: updateDeviceGroup
+      tags:
+        - Device Groups
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: "#/components/parameters/deviceGroupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceGroupUpdateRequest'
+      responses:
+        '204':
+          description: "No content, the resource was successfully updated."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    delete:
+      summary: Delete a new device group
+      operationId: deleteDeviceGroup
+      tags:
+        - Device Groups
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: "#/components/parameters/deviceGroupId"
+      responses:
+        '204':
+          description: "No content, the resource was successfully deleted."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/device-groups/export:
+    post:
+      summary: Get Device Groups exported as CSV.
+      tags:
+        - Device Groups
+      operationId: exportDeviceGroups
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceGroupQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledReport'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/device-groups/{deviceGroupId}/devices/export:
+    post:
+      summary: Get Device Group Devices exported as CSV.
+      tags:
+        - Device Groups
+      operationId: exportDeviceGroupDevices
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/deviceGroupId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledReport'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+  # Next release: we can add support for more Query filters (e.g. SPs, APNs, ...)
+
+  ########################## [Awareness] Security Report ##########################
+
+  /watchtower/v1/security-report/export:
+    get:
+      tags:
+        - Security Report
+      summary: Get Monthly Security Report PDF
+      description: Get Monthly Security Report PDF
+      operationId: getSecurityReportPDF
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/year'
+        - $ref: '#/components/parameters/month'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledReport'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/security-report/summary:
+    get:
+      tags:
+        - Security Report
+      summary: Get Security Report Summary
+      description: Get Summary section from Security Report
+      operationId: getSecurityReportSummary
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/year'
+        - $ref: '#/components/parameters/month'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityReportSummary'
+              example:
+                total_low: 19
+                total_medium: 3
+                total_high: 3
+                overall_severity: High
+                summary_text: During the month of April 2025, Aeris IoT Watchtower™ conducted a security assessment of your 105,899 provisioned devices, of which 5 were active, on the Aeris network. We encountered a total of 25 issues with 3 considered to be high risk, 3 medium risk, and 19 low risks across the categories below. In this summary, we list only the most important in each category.
+                disclaimer: The results presented in this report are a point-in-time risk assessment and represent the state of security on the date it was produced. Aeris makes no representation on the completeness of the risks assessed. The risks analyzed in the section titled Security Risk Assessment Details constitute the entire analysis performed. This report is prepared for the intended recipient only and no other parties may rely on it for any purposes.
+                disclaimer_no2: ICMP, DNS and NTP protocols are excluded from endpoint locations map.
+                sections:
+                  application_security:
+                    high: 1
+                    medium: 1
+                    low: 0
+                    highest_severity: High
+                    recommended_action: Verify the legitimacy of traffic for devices communicating in non-designated / OFAC countries.
+                  data_protection:
+                    high: 2
+                    medium: 0
+                    low: 2
+                    highest_severity: High
+                    recommended_action: We recommend configuring your IoT devices to use encrypted protocols (HTTPS and SFTP) rather than unencrypted protocols (HTTP and FTP).
+                  device_security:
+                    high: 0
+                    medium: 0
+                    low: 15
+                    highest_severity: Low
+                    recommended_action: No action required at this time.
+                  inventory_control_devices:
+                    high: 0
+                    medium: 0
+                    low: 2
+                    highest_severity: Low
+                    recommended_action: No action required at this time.
+                  net_work_security:
+                    high: 0
+                    medium: 2
+                    low: 0
+                    highest_severity: Medium
+                    recommended_action: We recommend an end-to-end encrypted channel to be used for data flow between IOT devices and the customer’s application server.
+                device_activated_summary:
+                  - - Unknown
+                    - 5
+                    - 462612618
+                trend_low:
+                  content: +18.75%
+                  direction: trend_up
+                  current_value: 19
+                  previous_value: 16
+                trend_medium:
+                  content: 0%
+                  direction: trend_flat
+                  current_value: 3
+                  previous_value: 3
+                trend_high:
+                  content: '-50%'
+                  direction: trend_down
+                  current_value: 3
+                  previous_value: 6
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/security-report/detail:
+    get:
+      tags:
+        - Security Report
+      summary: Get Security Report Detail
+      description: Get Details section from Security Report
+      operationId: getSecurityReportDetail
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/year'
+        - $ref: '#/components/parameters/month'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityReportDetail'
+              example:
+                sections:
+                  inventory_control_devices:
+                    - sec_no: '1.1'
+                      tds:
+                        - content: 1.1 Devices located according to expectations
+                          column: security_item
+                        - content: 'Are devices outside their designated home country? '
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices outside of designated home country: Low < 5% Medium 5% to 10% High: > 10% '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '1.2'
+                      tds:
+                        - content: 1.2 Non-IoT devices in use
+                          column: security_item
+                        - content: 'Use of Non-IoT devices '
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% of non-IoT devices: Low < 5% Medium 5% to 10% High > 10% '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                  data_protection:
+                    - sec_no: '2.1'
+                      tds:
+                        - content: 2.1 Encrypt Data flow to private applications
+                          column: security_item
+                        - content: Number of  enterprise cellular connections towards applications deployed in the enterprise’s private network not using  encrypted channels (ex- https or TLS)?
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% of devices using unencrypted channels: Low < 5% Medium 5% to 10% High > 10% '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '2.2'
+                      tds:
+                        - content: 2.2 Encrypt Data flow to public applications
+                          column: security_item
+                        - content: Number of enterprise cellular connections towards applications deployed in the enterprise’s public network not using encrypted channels (ex- https or TLS)?
+                          column: description
+                        - content: +100%
+                          direction: trend_up
+                          current_value: 1
+                          previous_value: 0
+                          column: trend
+                        - content: '1'
+                          column: occurrence_count
+                        - content: '% of devices using unencrypted channels: Low < 5% Medium 5% to 10% High > 10% '
+                          column: assessment_criteria
+                        - content: High
+                          column: assessed_severity
+                        - content: We recommend configuring your IoT devices to use encrypted protocols (HTTPS and SFTP) rather than unencrypted protocols (HTTP and FTP).
+                          column: recommended_action
+                    - sec_no: '2.3'
+                      tds:
+                        - content: 2.3 Use of untrusted DNS servers
+                          column: security_item
+                        - content: Number of devices connecting to a recursive DNS that is public or untrusted
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% of devices using a public recursive DNS: Low < 5% Medium 5% to 10% High > 10% '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '2.4'
+                      tds:
+                        - content: 2.4 Data Sovereignty
+                          column: security_item
+                        - content: Number of devices communicating with applications located outside the home country
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% of devices communicating with applications outside their home country: Low < 0.1% Medium 0.1% to 0.5% High > 0.5%'
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                  net_work_security:
+                    - sec_no: '3.1'
+                      tds:
+                        - content: 3.1 Devices utilizing a secure connection
+                          column: security_item
+                        - content: Are remote devices utilizing VPN to connect to enterprise’s servers?
+                          column: description
+                        - content: +100%
+                          direction: trend_up
+                          current_value: 1
+                          previous_value: 0
+                          column: trend
+                        - content: '1'
+                          column: occurrence_count
+                        - content: ''
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '3.2'
+                      tds:
+                        - content: 3.2 Manage security access controls
+                          column: security_item
+                        - content: Is there a zero-trust security policy enabled OR creating a blocked list of endpoints?
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: Low if any network policy configured, Medium otherwise
+                          column: assessment_criteria
+                        - content: Medium
+                          column: assessed_severity
+                        - content: Verify the legitimacy of traffic for affected devices depicting anomalous behavior and set up policies to proactively block or allow traffic using Aeris IoT WatchTower Enforcement.
+                          column: recommended_action
+                  application_security:
+                    - sec_no: '4.1'
+                      tds:
+                        - content: '4.1 Non-compliant communications: OFAC'
+                          column: security_item
+                        - content: Are devices communicating to endpoints in OFAC countries?
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: 'Devices communicating to endpoints in OFAC countries: Low = 0 High > 0 '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '4.2'
+                      tds:
+                        - content: 4.2 Public applications
+                          column: security_item
+                        - content: Applications reachable via the public Internet
+                          column: description
+                        - content: +100%
+                          direction: trend_up
+                          current_value: 54
+                          previous_value: 0
+                          column: trend
+                        - content: '54'
+                          column: occurrence_count
+                        - content: 'Number of applications reachable on the public Internet: Low = 0 Medium > 0'
+                          column: assessment_criteria
+                        - content: Medium
+                          column: assessed_severity
+                        - content: We recommend secure VPN communication instead of public internet for application communication.
+                          column: recommended_action
+                  device_security:
+                    - sec_no: '5.1'
+                      alert_type: Malicious Endpoint
+                      tds:
+                        - content: 5.1 Malicious Endpoint
+                          column: security_item
+                        - content: Devices communicating with well-known malicious endpoints identified by their IP address
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% of devices communicating with Malicious endpoints by IP: Low < 0.1% Medium 0.1% to 0.5% High > 0.5% '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.2'
+                      alert_type: New IP
+                      tds:
+                        - content: 5.2 Anomalous Behavior - New destination IPs
+                          column: security_item
+                        - content: Devices attached to unexpected new destination IP addresses on the network
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing new IP addresses: Low < 0.1% Medium 0.1% to 0.5% High > 0.5%'
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.3'
+                      alert_type: Port Scan
+                      tds:
+                        - content: 5.3 Anomalous Behavior – Port scan
+                          column: security_item
+                        - content: Devices scanning ports beyond their normal connection to the endpoint
+                          column: description
+                        - content: +100%
+                          direction: trend_up
+                          current_value: 1
+                          previous_value: 0
+                          column: trend
+                        - content: '1'
+                          column: occurrence_count
+                        - content: '% devices showing port scan events: Low < 0.1% Medium 0.1% to 0.5% High > 0.5% '
+                          column: assessment_criteria
+                        - content: High
+                          column: assessed_severity
+                        - content: Verify the integrity of these devices that have been performing unusual port scans.
+                          column: recommended_action
+                    - sec_no: '5.4'
+                      alert_type: Address Scan
+                      tds:
+                        - content: 5.4 Anomalous Behavior – Address scan
+                          column: security_item
+                        - content: Devices scanning the addresses of other devices in their subnet
+                          column: description
+                        - content: +100%
+                          direction: trend_up
+                          current_value: 1
+                          previous_value: 0
+                          column: trend
+                        - content: '1'
+                          column: occurrence_count
+                        - content: '% devices showing address scan events: Low 0% Medium 0% to 0.1% High > 0.1% '
+                          column: assessment_criteria
+                        - content: High
+                          column: assessed_severity
+                        - content: Verify the integrity of these devices that have been performing unusual address scans.
+                          column: recommended_action
+                    - sec_no: '5.5'
+                      alert_type: TCP Bad Flags
+                      tds:
+                        - content: 5.5 Anomalous Behavior – TCP bad flags
+                          column: security_item
+                        - content: Unexpected use of TCP flags
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: 'Frequency of TCP bad flag events per week: Low <10 Medium 10 to 100 High > 100 '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.6'
+                      alert_type: TCP Max Flows
+                      tds:
+                        - content: 5.6 Anomalous Behavior – TCP large flow count
+                          column: security_item
+                        - content: Unexpected large count of TCP flows
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing large TCP flow count: Low < 0.1% Medium 0.1% to 0.5% High > 0.5%'
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.7'
+                      alert_type: Traffic Spike
+                      tds:
+                        - content: 5.7 Anomalous Behavior – Traffic spike
+                          column: security_item
+                        - content: Unexpected large occurrence of traffic spike
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing traffic spike: Low < 0.1% Medium 0.1% to 0.5% High > 0.5%'
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.8'
+                      alert_type: SIM Misuse
+                      tds:
+                        - content: 5.8 SIM misuse
+                          column: security_item
+                        - content: Devices having their SIM swapped
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing SIM misuse alarm: Low 0% Medium 0% to 0.1% High > 0.1% '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.9'
+                      alert_type: Botnet and C&C
+                      tds:
+                        - content: 5.9 Botnet and C&C
+                          column: security_item
+                        - content: Devices communicated with an endpoint related to a malicious bot, infecting the hosts and connecting them to a central server or servers that act as a command and control (C&C) center.
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing Botnet and C&C: Low < 0.1% Medium 0.1% to 0.5% High > 0.5%'
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.10'
+                      alert_type: Cryptocurrency
+                      tds:
+                        - content: 5.10 Cryptocurrency
+                          column: security_item
+                        - content: Devices communicated with an endpoint related to cryptocurrencies, which allow malicious actors to perform illegal or fraudulent activities, purchases, or payments.
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing Cryptocurrency: Low < 0.1% Medium 0.1% to 0.5% High > 0.5% '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.11'
+                      alert_type: Data Exfiltration
+                      tds:
+                        - content: 5.11 Data Exfiltration
+                          column: security_item
+                        - content: Devices communicated with an endpoint participating in data exfiltration, which refers to obfuscating DNS queries for the purpose of hiding communication.
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing Data Exfiltration: Low < 0.1% Medium 0.1% to 0.5% High > 0.5% '
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.12'
+                      alert_type: Phishing
+                      tds:
+                        - content: 5.12 Phishing
+                          column: security_item
+                        - content: Devices communicated with email messages that look like they are from a trusted business but are actually connected to phishing websites.
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing Phishing: Low < 0.1% Medium 0.1% to 0.5% High > 0.5%'
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.13'
+                      alert_type: Suspicious Endpoint
+                      tds:
+                        - content: 5.13 Suspicious Endpoint
+                          column: security_item
+                        - content: Devices communicated with a domain that has not been established and is serving temporary content on its base page (a parked domain).
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing Suspicious Endpoint: Low < 0.1% Medium 0.1% to 0.5% High > 0.5%'
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.14'
+                      alert_type: Ransomware
+                      tds:
+                        - content: 5.14 Ransomware
+                          column: security_item
+                        - content: Devices communicated with an endpoint known to have ransomware, a type of malware that can encrypt or destroy files and folders on a device, server, or computer, and then demand a ransom payment in exchange for a key to unlock the data.
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% devices showing Ransomware: Low < 0.1% Medium 0.1% to 0.5% High > 0.5%'
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                    - sec_no: '5.15'
+                      alert_type: Blocked Flows
+                      tds:
+                        - content: 5.15 Blocked Flows
+                          column: security_item
+                        - content: Blocked Flows by a security policy.
+                          column: description
+                        - content: 0%
+                          direction: trend_flat
+                          current_value: 0
+                          previous_value: 0
+                          column: trend
+                        - content: '0'
+                          column: occurrence_count
+                        - content: '% showing Blocked Flows: Low < 0.1% Medium 0.1% to 0.5% High > 0.5%'
+                          column: assessment_criteria
+                        - content: Low
+                          column: assessed_severity
+                        - content: No action required at this time.
+                          column: recommended_action
+                category:
+                  inventory_control_devices: 1. Inventory and Control of Devices
+                  data_protection: 2. Data Protection
+                  net_work_security: 3. Network Security
+                  application_security: 4. Application Security
+                  device_security: 5. Device Security
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/security-report/device-location:
+    get:
+      tags:
+        - Security Report
+      summary: Get Security Report Device Location Tables
+      description: Get Device Location section from Security Report
+      operationId: getSecurityReportDevice
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/year'
+        - $ref: '#/components/parameters/month'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityReportDeviceUsage'
+              example:
+                total: 1
+                data:
+                  - - active_devices: 0
+                      device_country: string
+                      data_usage_bytes: 0
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/security-report/endpoint-location:
+    get:
+      tags:
+        - Security Report
+      summary: Get Security Report Endpoint Location Tables
+      description: Get Endpoint Location section from Security Report
+      operationId: getSecurityReportEndpoint
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/year'
+        - $ref: '#/components/parameters/month'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityReportEndpoint'
+              example:
+                total: 1
+                data:
+                  - - endpoint_country: United States
+                      device_count: 5
+                      endpoint_count: 385
+                      data_usage_bytes: 12131923
+                      ip_flows: 8320
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/security-report/appendix/search:
+    post:
+      tags:
+        - Security Report
+      summary: Get Security Report Appendix
+      description: Get Appendix report of an account for a specific month
+      operationId: getSecurityReportAppendix
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/year'
+        - $ref: '#/components/parameters/month'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityReportAppendixRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedSecurityReportAppendix'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '413':
+          $ref: '#/components/responses/413'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/security-report/appendix/export:
+    post:
+      summary: Export Security Report Appendix
+      description: Export Security Report Appendix
+      tags:
+        - Security Report
+      operationId: exportSecurityReportAppendix
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/year'
+        - $ref: '#/components/parameters/month'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityReportAppendixTrigger'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledReport'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+
+  ########################## Activity Logs ########################################
+  /watchtower/v1/activity-logs/device-groups/search:
+    post:
+      summary: Get device group activity logs
+      description: Get activity logs of a device group
+      operationId: getActivityLogsDeviceGroups
+      tags:
+        - Activity Logs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceGroupActivityLogQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedDeviceGroupActivityLog'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/activity-logs/events/search:
+    post:
+      summary: Get events activity logs
+      description: Get events life cycle activity logs
+      operationId: getActivityLogsEvents
+      tags:
+        - Activity Logs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventActivityLogQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedEventActivityLog'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/activity-logs/events/configs/search:
+    post:
+      summary: Get event configs activity logs
+      description: Get event configs activity logs
+      operationId: getActivityLogsEventConfigs
+      tags:
+        - Activity Logs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventConfigActivityLogQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedEventConfigActivityLog'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/activity-logs/applications/search:
+    post:
+      summary: Get applications activity logs
+      description: Get applications activity logs
+      operationId: getActivityLogsApplications
+      tags:
+        - Activity Logs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationActivityLogQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedApplicationActivityLog'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/activity-logs/protection-policies/search:
+    post:
+      summary: Get protection policies activity logs
+      description: Get protection policies activity logs
+      operationId: getActivityLogsProtectionPolicies
+      tags:
+        - Activity Logs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProtectionPolicyActivityLogQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedProtectionPolicyActivityLog'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/activity-logs/enforcement-rules/search:
+    post:
+      summary: Get enforcement rules activity logs
+      description: Get enforcement rules activity logs
+      operationId: getActivityLogsEnforcementRules
+      tags:
+        - Activity Logs
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnforcementRuleActivityLogQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedEnforcementRuleActivityLog'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+  ########################## [Enforcement] Applications ###################################
+  /watchtower/v1/applications:
+    post:
+      summary: Create an application
+      operationId: createApplication
+      tags:
+        - Applications
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationCreateRequest'
+      responses:
+        '201':
+          description: Application created successfully
+          content:
+            application/json:
+              schema:
+                type: integer
+                format: int64
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/applications/search:
+    post:
+      summary: Search applications
+      operationId: searchApplications
+      tags:
+        - Applications
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationsQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedApplications'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/applications/{applicationId}:
+    get:
+      summary: Get an application
+      operationId: getApplication
+      tags:
+        - Applications
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: '#/components/parameters/applicationId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    put:
+      summary: Update an existing application
+      operationId: updateApplication
+      tags:
+        - Applications
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: "#/components/parameters/applicationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationUpdateRequest'
+      responses:
+        '204':
+          description: "No content, the resource was successfully updated."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    delete:
+      summary: Delete an application
+      operationId: deleteApplication
+      tags:
+        - Applications
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: "#/components/parameters/applicationId"
+      responses:
+        '204':
+          description: "No content, the resource was successfully deleted."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+  ########################## [Enforcement] Protection Policies ###################################
+  /watchtower/v1/protection-policies:
+    post:
+      summary: Create a protection policy
+      operationId: createProtectionPolicy
+      tags:
+        - Protection Policies
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProtectionPolicyCreateRequest'
+      responses:
+        '201':
+          description: Protection policy created successfully
+          content:
+            application/json:
+              schema:
+                type: integer
+                format: int64
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/protection-policies/search:
+    post:
+      summary: Search protection policies
+      operationId: searchProtectionPolicies
+      tags:
+        - Protection Policies
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProtectionPoliciesQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedProtectionPolicies'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/protection-policies/{protectionPolicyId}:
+    get:
+      summary: Get a protection policy
+      operationId: getProtectionPolicy
+      tags:
+        - Protection Policies
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: '#/components/parameters/protectionPolicyId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtectionPolicy'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    put:
+      summary: Update an existing protection policy
+      operationId: updateProtectionPolicy
+      tags:
+        - Protection Policies
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: "#/components/parameters/protectionPolicyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProtectionPolicyUpdateRequest'
+      responses:
+        '204':
+          description: "No content, the resource was successfully updated."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    delete:
+      summary: Delete a protection policy
+      operationId: deleteProtectionPolicy
+      tags:
+        - Protection Policies
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: "#/components/parameters/protectionPolicyId"
+      responses:
+        '204':
+          description: "No content, the resource was successfully deleted."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+  ########################## [Enforcement] Enforcement Rules ###################################
+  /watchtower/v1/enforcement-rules:
+    post:
+      summary: Create an enforcement rule
+      operationId: createEnforcementRule
+      tags:
+        - Enforcement Rules
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnforcementRuleCreateRequest'
+      responses:
+        '201':
+          description: Enforcement rule created successfully
+          content:
+            application/json:
+              schema:
+                type: integer
+                format: int64
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/enforcement-rules/search:
+    post:
+      summary: Search enforcement rules
+      operationId: searchEnforcementRules
+      tags:
+        - Enforcement Rules
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/startTime'
+        - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnforcementRulesQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedEnforcementRules'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/enforcement-rules/{enforcementRuleId}:
+    get:
+      summary: Get an enforcement rule
+      operationId: getEnforcementRule
+      tags:
+        - Enforcement Rules
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: '#/components/parameters/enforcementRuleId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnforcementRule'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    put:
+      summary: Update an existing enforcement rule
+      operationId: updateEnforcementRule
+      tags:
+        - Enforcement Rules
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: "#/components/parameters/enforcementRuleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnforcementRuleUpdateRequest'
+      responses:
+        '204':
+          description: "No content, the resource was successfully updated."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+    delete:
+      summary: Delete an enforcement rule
+      operationId: deleteEnforcementRule
+      tags:
+        - Enforcement Rules
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: "#/components/parameters/accountId"
+        - $ref: "#/components/parameters/enforcementRuleId"
+      responses:
+        '204':
+          description: "No content, the resource was successfully deleted."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+  /watchtower/v1/enforcement-rules/{enforcementRuleId}/activate:
+    post:
+      summary: Activate an enforcement rule
+      operationId: activateEnforcementRule
+      tags:
+        - Enforcement Rules
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/enforcementRuleId'
+      responses:
+        '204':
+          description: "No content, the resource was successfully updated."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /watchtower/v1/enforcement-rules/{enforcementRuleId}/deactivate:
+    post:
+      summary: Deactivate an enforcement rule
+      operationId: deactivateEnforcementRule
+      tags:
+        - Enforcement Rules
+      parameters:
+        - $ref: '#/components/parameters/authorization'
+        - $ref: '#/components/parameters/accountId'
+        - $ref: '#/components/parameters/enforcementRuleId'
+      responses:
+        '204':
+          description: "No content, the resource was successfully updated."
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '429':
+          $ref: '#/components/responses/429'
+        '500':
+          $ref: '#/components/responses/500'
+
+########################## components ###########################################
+components:
+
+  securitySchemes:
+    oAuth2ClientCredentials:
+      type: oauth2
+      description: This API uses OAuth 2 with the Client Credentials flow.
+      flows:
+        clientCredentials:
+          tokenUrl: /watchtower/v1/auth/token
+          scopes: { }
+
+  parameters:
+    authorization:
+      name: Authorization
+      in: header
+      description: Bearer Token for authentication
+      required: true
+      schema:
+        type: string
+        pattern: '^Bearer [A-Za-z0-9-._~+/]+=*$'
+      example: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ...'
+    accountId:
+      name: X-Watchtower-Account-Id
+      in: header
+      description: Account Id
+      required: true
+      schema:
+        $ref: '#/components/schemas/accountId'
+      example: 1002000010
+    startTime:
+      name: startTime
+      in: query
+      required: true
+      description: The start timestamp. (inclusive)
+      example: '2021-07-01T06:30:00Z'
+      schema:
+        $ref: '#/components/schemas/dateTime'
+    endTime:
+      name: endTime
+      in: query
+      required: true
+      description: The end timestamp. (exclusive)
+      example: '2021-07-05T06:30:00Z'
+      schema:
+        $ref: '#/components/schemas/dateTime'
+    offset:
+      name: offset
+      in: query
+      description: >-
+        The position in pagination. Specifies the starting row offset into the
+        result set returned. For example, if the page size (limit) is 10, then
+        to select the second page, pass the offset as 10 to retrieve items 11 to
+        20.<br><br> Search parameters must be consistent across pages.
+      schema:
+        $ref: '#/components/schemas/offset'
+    limit:
+      name: limit
+      in: query
+      description: The number of items to retrieve per page (10000 max).
+      schema:
+        $ref: '#/components/schemas/limit'
+    sort:
+      name: sort
+      in: query
+      description: Use <b>sort=comma-separated-fields[:asc|desc]</b> to sort the result.
+      example: deviceId,updateTime:desc
+      schema:
+        type: string
+    reportId:
+      name: reportId
+      in: path
+      description: Report Id
+      required: true
+      schema:
+        type: string
+      example: b7e72bb3-b2fd-4265-a28b-9a279418fdb9
+    deviceId:
+      name: deviceId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/deviceId'
+    year:
+      name: year
+      description: Year
+      in: query
+      required: true
+      schema:
+        type: integer
+        maximum: 2099
+        minimum: 2000
+    month:
+      name: month
+      description: Month
+      in: query
+      required: true
+      schema:
+        type: integer
+        maximum: 12
+        minimum: 1
+
+    # Events
+    eventId:
+      name: eventId
+      in: path
+      description: Event Id
+      required: true
+      schema:
+        $ref: '#/components/schemas/EventId'
+    eventConfigId:
+      name: eventConfigId
+      in: path
+      description: Event Configuration Id
+      required: true
+      schema:
+        type: integer
+    suppressionConfigId:
+      name: suppressionConfigId
+      in: path
+      description: Event Suppression Configuration Id
+      required: true
+      schema:
+        type: integer
+        format: int64
+    undoDismissedEvents:
+      name: undoDismissedEvents
+      in: query
+      description: Whether to undo past events dismissed by this suppression config or not
+      required: true
+      schema:
+        type: boolean
+        default: false
+
+    # DeviceGroups
+    deviceGroupId:
+      name: deviceGroupId
+      in: path
+      required: true
+      description: The ID of the device group
+      schema:
+        type: integer
+
+    # Applications
+    applicationId:
+      name: applicationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/applicationId'
+
+    # ProtectionPolicies
+    protectionPolicyId:
+      name: protectionPolicyId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/protectionPolicyId'
+
+    # EnforcementRules
+    enforcementRuleId:
+      name: enforcementRuleId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/enforcementRuleId'
+
+  schemas:
+    accountId:
+      description: Account Id.
+      type: integer
+      format: int32
+      example: 10407
+      minimum: 0
+    dateTime:
+      description: ISO 8601 date time
+      type: string
+      format: date-time
+      example: '2021-07-04T17:36:47Z'
+    offset:
+      description: Position in pagination.
+      type: integer
+      format: int32
+      default: 0
+      minimum: 0
+    limit:
+      type: integer
+      format: int32
+      description: Number of items to retrieve (10000 max).
+      minimum: 1
+      maximum: 10000
+      default: 20
+    total:
+      type: integer
+      format: int64
+      description: Total number of items available.
+      example: 1
+      minimum: 0
+    iccid:
+      description: Integrated Circuit Card Identifier.
+      type: string
+      minLength: 18
+      maxLength: 22
+      example: '891004234814455936'
+    imei:
+      description: IMEI (International Mobile Equipment Identity) of the device.
+      type: string
+      minLength: 14
+      maxLength: 15
+      example: '86715704097269'
+    imsi:
+      description: International Mobile Subscriber Identifier of the device.
+      type: string
+      maxLength: 15
+      example: '310009133100012'
+    msisdn:
+      description: Mobile Station International Subscriber Directory Number.
+      type: string
+      maxLength: 15
+      example: '8801500121121'
+    deviceProfileId:
+      description: Device Profile ID assigned to the device.
+      type: string
+      maxLength: 30
+      example: AER0000007087071
+    ip:
+      type: string
+      description: IP Address
+      example: 172.16.1.3
+    port:
+      type: integer
+      description: Port number
+      minimum: 0
+      maximum: 65536
+      example: 8080
+    domain:
+      description: FQDN
+      type: string
+      example: abc.xyz.com
+    endpointFQDN:
+      description: Fully qualified domain name of the endpoint
+      type: string
+      maxLength: 253
+      minLength: 1
+
+    ##### Generic
+    ReportStatus:
+      description: Report status
+      type: string
+      example: Processing
+      enum:
+        - Success
+        - Processing
+        - Error
+        - NotStarted
+    ScheduledReport:
+      type: object
+      properties:
+        reportId:
+          description: Report Id
+          type: string
+          example: 7ae9e22d-8ad4-4a69-950a-6b13d75f0c74
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        statusEndpoint:
+          description: Report Status URL
+          type: string
+          example: /watchtower/v1/scheduled-reports/7ae9e22d-8ad4-4a69-950a-6b13d75f0c74
+    ScheduledReportStatus:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Report processed successfully.
+        error:
+          type: boolean
+          example: false
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        signedUrl:
+          description: Report URL
+          type: string
+          example: https://storage.googleapis.com/watchtower-reports/7ae9e22d-8ad4-4a69-950a-6b13d75f0c74?X-Goog-Algorithm=GOOG4-RSA-SHA
+        createdAt:
+          description: Creation date
+          type: string
+          example: 2025-06-11T14:04:59Z
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: HTTP code
+          example: 500
+        message:
+          type: string
+          description: Error message
+          example: An error encountered in processing the request
+        timestamp:
+          type: string
+          description: ISO DateTime
+          example: "2025-06-02 09:01:53.678"
+        path:
+          type: string
+          description: Endpoint path at which the error occured
+          example: /watchtower/v1/events
+        traceId:
+          type: string
+          description: Trace Id
+          example: ed81f29f-ea9b-4099-aa00-f8ed40b7a567
+    Pagination:
+      type: object
+      properties:
+        total:
+          $ref: '#/components/schemas/total'
+        offset:
+          $ref: '#/components/schemas/offset'
+        limit:
+          $ref: '#/components/schemas/limit'
+
+    ##### Events
+    EventId:
+      type: string
+      description: Event Id
+      example: v1_1652823856823_6b71e284b63a527caa6296a66e9fdd0c
+      maxLength: 128
+      minLength: 1
+    EventSeverity:
+      description: Severity of the Event
+      type: string
+      example: Critical
+      enum:
+        - Critical
+        - High
+        - Medium
+        - Low
+      x-enum-varnames:
+        - Critical
+        - High
+        - Medium
+        - Low
+    EventStatus:
+      description: Status of the Event
+      type: string
+      example: Saved For Review
+      enum:
+        - New
+        - Saved For Review
+        - In Process
+        - Resolved
+        - Dismissed
+      x-enum-varnames:
+        - New
+        - SavedForReview
+        - InProcess
+        - Resolved
+        - Dismissed
+    EventType:
+      type: string
+      description: Type of the Event
+      example: Malicious Endpoint
+      enum:
+        - Address Scan
+        - Botnet and C&C
+        - Cryptocurrency
+        - Data Exfiltration
+        - Malicious Endpoint
+        - New IP
+        - New Port
+        - Phishing
+        - Port Scan
+        - Ransomware
+        - SIM Misuse
+        - Suspicious Endpoint
+        - TCP Bad Flags
+        - TCP Max Flows
+        - Traffic Spike
+        - Unclassified
+      x-enum-varnames:
+        - AddressScan
+        - BotnetAndCnC
+        - Cryptocurrency
+        - DataExfiltration
+        - MaliciousEndpoint
+        - NewIP
+        - NewPort
+        - Phishing
+        - PortScan
+        - Ransomware
+        - SIMMisuse
+        - SuspiciousEndpoint
+        - TCPBadFlags
+        - TCPMaxFlows
+        - TrafficSpike
+        - Unclassified
+    EventCategory:
+      type: string
+      description: Category of the Event
+      example: Malicious
+      enum:
+        - Malicious
+        - Suspicious
+        - Anomalous
+    EventConfigSuppressionPeriodType:
+      type: string
+      enum:
+        - ALWAYS
+        - DURING_TIME_PERIOD
+    EventDeviceGroup:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
+          example: Group1
+        colorCode:
+          type: string
+          example: '#123aaff'
+    Event:
+      type: object
+      properties:
+        eventId:
+          $ref: '#/components/schemas/EventId'
+        eventTime:
+          $ref: '#/components/schemas/dateTime'
+        category:
+          description: Category of the Event (example, Billing Events, Security Events etc)
+          type: string
+          example: Security
+        type:
+          description: Type of the Event
+          type: string
+          example: Sim Fraud
+        severity:
+          $ref: '#/components/schemas/EventSeverity'
+        status:
+          $ref: '#/components/schemas/EventStatus'
+        statusReason:
+          type: string
+          description: Additional Reasoning about status/status change.
+        description:
+          description: Description about the Event
+          type: string
+          example: IMEI change, TAC change, minimal change in data consumption.
+        eventTypeDescription:
+          description: Description about the Event type.
+          type: string
+          example: Detected anomalous communication(s).
+        notes:
+          description: Notes entered by a human user while taking an action on Event.
+          type: string
+        iccid:
+          $ref: '#/components/schemas/iccid'
+        imsi:
+          $ref: '#/components/schemas/imsi'
+        deviceProfileId:
+          $ref: '#/components/schemas/deviceProfileId'
+        productId:
+          description: Product Id associated with the device.
+          type: integer
+          format: int32
+          example: 41
+        eventConfigId:
+          type: integer
+          description: Event Config Id
+          example: 134242
+        lastActionTime:
+          $ref: '#/components/schemas/dateTime'
+        lastActionUser:
+          description: User who took some action on this Event.
+          type: string
+          format: email
+          example: john.doe@example.com
+        eventSource:
+          type: string
+          description: Source system of this Event
+          example: Security Center
+        context:
+          type: object
+          description: Context of Event. This is specific to each type of Event.
+          additionalProperties: true
+        deviceIp:
+          $ref: '#/components/schemas/ip'
+        devicePort:
+          $ref: '#/components/schemas/port'
+        serverIp:
+          $ref: '#/components/schemas/ip'
+        serverPort:
+          $ref: '#/components/schemas/port'
+        serverFqdn:
+          $ref: '#/components/schemas/domain'
+        deviceName:
+          description: Name of the device.
+          type: string
+          maxLength: 30
+          example: Lawn Mower 007
+        eventTypeId:
+          description: Event Type Id
+          type: integer
+          example: 5
+        severityId:
+          description: Severity Id. Lower values means higher severity.
+          type: integer
+          example: 5
+        confidenceLevel:
+          description: >-
+            Indicates the system's certainty about the accuracy of the detected
+            event.
+          type: string
+          example: 85
+        threatClass:
+          description: Categorizes the type of threat.
+          type: string
+          example: APT
+        threatLevel:
+          description: Shows the severity of the identified threat.
+          type: integer
+          example: 100
+        threatDiagnostic:
+          description: Provides detailed analysis and detection information of the threat.
+          type: string
+          example: >-
+            The threat diagnostic identifies unusual login attempts from
+            multiple locations.
+        protectionLevel:
+          description: This column will store the protection level with possible values.
+          type: string
+          example: Essential, Aggressive, Comprehensive.
+        requestId:
+          description: This column will store the request ID.
+          type: string
+          example: REQ201043380628
+        deviceGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventDeviceGroup'
+    EventConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Event Config Id
+          example: 134242
+        eventTypeId:
+          description: Event Type Id
+          type: integer
+          example: 10
+        type:
+          description: Event Type
+          type: string
+          example: Traffic Spike
+        detectionState:
+          type: string
+          enum:
+            - DISMISSING
+            - ACTIVE_FOR_ALL_DEVICES
+            - MULTIPLE_STATES
+        suppressionConfig:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventSuppressionConfig'
+        lastModifiedBy:
+          description: Last modified user
+          type: string
+          example: abc.xyz@aeris.com
+        lastModifiedTime:
+          $ref: '#/components/schemas/dateTime'
+    EventConfigActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLog'
+        - type: object
+          properties:
+            suppressionPeriodType:
+              $ref: '#/components/schemas/EventConfigSuppressionPeriodType'
+            suppressionPeriodStart:
+              $ref: '#/components/schemas/dateTime'
+            suppressionPeriodEnd:
+              $ref: '#/components/schemas/dateTime'
+    EventActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLog'
+        - type: object
+          properties:
+            occurrence:
+              type: integer
+              format: int64
+    EventSuppressionConfig:
+      allOf:
+        - type: object
+          properties:
+            id:
+              description: Event suppression config Id
+              type: integer
+              format: int64
+        - $ref: '#/components/schemas/EventSuppressionConfigBase'
+        - type: object
+          properties:
+            eventConfigId:
+              type: integer
+              description: Event config Id
+              example: 134242
+            detectionState:
+              type: string
+            dismissPastEvents:
+              type: boolean
+            lastModifiedBy:
+              description: Last modified user
+              type: string
+              example: abc.xyz@aeris.com
+            lastModifiedTime:
+              $ref: '#/components/schemas/dateTime'
+    EventSuppressionConfigCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/EventSuppressionConfigBase'
+        - type: object
+          properties:
+            dismissPastEvents:
+              type: boolean
+    EventSuppressionConfigUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/EventSuppressionConfigBase'
+    EventSuppressionConfigBase:
+      type: object
+      properties:
+        name:
+          description: Name of the event suppression config
+          type: string
+          example: Dismiss Truck events
+        description:
+          description: Description of the event suppression config
+          type: string
+          example: This config is for dismissing all truck events
+        config:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConfigItem'
+        suppressionTargetDevices:
+          $ref: '#/components/schemas/EventSuppressionTargetDevices'
+        suppressionMatchingTraffic:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventSuppressionMatchingTraffic'
+        suppressionPeriodType:
+          $ref: '#/components/schemas/EventConfigSuppressionPeriodType'
+        suppressionPeriodStart:
+          $ref: '#/components/schemas/dateTime'
+        suppressionPeriodEnd:
+          $ref: '#/components/schemas/dateTime'
+        comment:
+          description: Comment for the suppression config
+          type: string
+          example: Just for truck
+    ConfigItem:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the configuration field.
+          example: Minimum Threshold
+        value:
+          type: string
+          description: Value of the configuration field.
+          example: 1024
+    EventSuppressionTargetDevices:
+      type: object
+      properties:
+        iccid:
+          type: array
+          description: List of Integrated Circuit Card Identifier of the device.
+          items:
+            type: string
+          example:
+          - 891004234814455936
+          - 891004234814455937
+      required:
+        - iccid
+    EventSuppressionMatchingTraffic:
+      type: object
+      properties:
+        serverIp:
+          type: array
+          description: List of IP Addresses
+          items:
+            type: string
+          example:
+          - 172.16.1.2
+          - 172.16.1.3
+        serverPort:
+          type: array
+          description: List of Port numbers
+          items:
+            type: string
+            example:
+            - 8080
+            - 9922
+        serverFqdn:
+          type: array
+          description: List of server fqdn
+          items:
+            type: string
+          example:
+          - example.com
+          - anotherexample.com
+        imei:
+          type: array
+          description: List of International Mobile Equipment Identity of the device, only applicable to SIM Misuse
+          items:
+            type: string
+          example:
+          - 86715704097269
+          - 86715704097260
+        numberOfPortsScanned:
+          type: array
+          description: Number of ports scanned, only applicable to Port Scan
+          items:
+            type: string
+          example:
+          - 6
+          - 10
+        targetScannedHosts:
+          type: array
+          description: IP subnet of scanned hosts, only applicable to Address Scan
+          items:
+            type: string
+          example:
+            - 10.0.2.0/24
+    EventActivityLogQuery:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLogQueryRequest'
+        - type: object
+          properties:
+            occurrence:
+              type: integer
+              format: int64
+    EventConfigActivityLogQuery:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLogQueryRequest'
+    PagedEventsTable:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Event'
+    PagedEventConfigsTable:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventConfig'
+    PagedEventConfigActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/EventConfigActivityLog"
+    PagedEventActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/EventActivityLog"
+    EventsQueryRequest:
+      type: object
+      properties:
+        imsi:
+          $ref: '#/components/schemas/imsi'
+        iccid:
+          $ref: '#/components/schemas/iccid'
+        msisdn:
+          $ref: '#/components/schemas/msisdn'
+        statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventStatus'
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventType'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventCategory'
+        confidentLevel:
+          type: integer
+        threatLevel:
+          type: integer
+        threatClass:
+          type: string
+        threatDiagnostic:
+          type: string
+        deviceIp:
+          $ref: '#/components/schemas/ip'
+        endpointIp:
+          $ref: '#/components/schemas/ip'
+        endpointPort:
+          $ref: '#/components/schemas/port'
+        matchingProtectionLevels:
+          type: array
+          items:
+            $ref: '#/components/schemas/malwareProtectionLevel'
+        fqdn:
+          $ref: '#/components/schemas/endpointFQDN'
+        requestId:
+          type: string
+        deviceGroupIds:
+          type: array
+          items:
+            type: integer
+            format: int32
+          description: Device Group Ids
+    EventsMetricsRequest:
+      allOf:
+        - $ref: '#/components/schemas/EventsQueryRequest'
+        - type: object
+          properties:
+            interval:
+              type: string
+              description: Time interval in ISO8601 duration format (e.g. P1D for daily, PT1H for hourly)
+              example: PT1H
+            dimensions:
+              type: string
+              description: Comma-separated list of dimensions
+              example: type,status
+            metrics:
+              type: string
+              description: >-
+                Comma-separated list of metrics. use cnt__<field> to get count
+                aggregate.
+              example: cnt__event_id
+    EventsUpdateRequest:
+      type: object
+      description: Object representing an event update request.
+      properties:
+        status:
+          description: Status of the Event
+          type: string
+          example: Saved For Review
+          enum:
+            - New
+            - Saved For Review
+            - In Process
+            - Resolved
+            - Dismissed
+          x-enum-varnames:
+            - New
+            - SavedForReview
+            - InProcess
+            - Resolved
+            - Dismissed
+        notes:
+          description: Notes entered by a human user while taking an action on event.
+          type: string
+          example: Acknowledging the event. Starting investigation of IMEI change.
+        reason:
+          description: Additional Reasoning about status/status change.
+          type: string
+          example: False Positive
+        email:
+          type: string
+          format: email
+          description: Email id of the user
+        requestId:
+          description: This column will store the request ID.
+          type: string
+          example: REQ201043380628
+    EventsBulkUpdateRequest:
+      allOf:
+        - type: object
+          properties:
+            eventIds:
+              type: array
+              items:
+                type: string
+                description: Event Id
+                example: v1_1652823856823_6b71e284b63a527caa6296a66e9fdd0c
+                maxLength: 128
+                minLength: 1
+        - $ref: '#/components/schemas/EventsUpdateRequest'
+    AggregateEventSecurityItem:
+      description: Aggregate Event Security Item
+      type: string
+      example: Malicious Endpoint
+      enum:
+        - Unclassified
+        - Address Scan
+        - Malicious IP
+        - New IP
+        - New Port
+        - Port Scan
+        - SIM Misuse
+        - TCP Bad Flags
+        - TCP Max Flows
+        - Traffic Spike
+        - Malicious Endpoint
+        - Botnet and C&C
+        - Cryptocurrency
+        - Data Exfiltration
+        - Suspicious Endpoint
+        - Phishing
+        - Ransomware
+        - Devices located according to expectations
+        - Non IoT devices in use
+        - Unencrypted data flow to private apps
+        - Unencrypted data flow to public apps
+        - Use of untrusted DNS servers
+        - Data Sovereignty
+        - Devices communicating using VPN
+        - Non compliant communication - OFAC
+        - Public applications
+        - Removable devices in use
+        - Blocked Flows
+      x-enum-varnames:
+        - Unclassified
+        - AddressScan
+        - MaliciousIP
+        - NewIP
+        - NewPort
+        - PortScan
+        - SIMMisuse
+        - TCPBadFlags
+        - TCPMaxFlows
+        - TrafficSpike
+        - MaliciousEndpoint
+        - BotnetAndCnC
+        - Cryptocurrency
+        - DataExfiltration
+        - SuspiciousEndpoint
+        - Phishing
+        - Ransomware
+        - DevicesLocatedAccordingToExpectations
+        - NonIoTDevicesInUse
+        - UnencryptedDataFlowToPrivateApps
+        - UnencryptedDataFlowToPublicApps
+        - UseOfUntrustedDNSServers
+        - DataSovereignty
+        - DevicesCommunicatingUsingVPN
+        - NonCompliantCommunicationOFAC
+        - PublicApplications
+        - RemovableDevicesInUse
+        - BlockedFlows
+    AggregateEventAssessedSeverity:
+      description: Aggregate Event Severity
+      type: string
+      example: High
+      enum:
+        - High
+        - Medium
+        - Low
+    AggregateEventRiskCategory:
+      description: Aggregate Event Category
+      type: string
+      example: "Device Security: Anomalous"
+      enum:
+        - "Device Security: Anomalous"
+        - "Device Security: Suspicious"
+        - "Device Security: Malicious"
+        - "Inventory and Control of Devices"
+        - "Data Protection"
+        - "Network Security"
+        - "Application Security"
+        - "Device Security: Traffic"
+    AggregatedEventsQueryRequest:
+      type: object
+      properties:
+        securityItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/AggregateEventSecurityItem'
+        assessedSeverities:
+          type: array
+          items:
+            $ref: '#/components/schemas/AggregateEventAssessedSeverity'
+        riskCategories:
+          type: array
+          items:
+            $ref: '#/components/schemas/AggregateEventRiskCategory'
+
+    ##### Summary/Metrics
+    Field:
+      type: object
+      properties:
+        name:
+          description: The field name.
+          type: string
+        type:
+          description: The data type of the field.
+          type: string
+          enum:
+            - BOOLEAN
+            - DATE
+            - TIMESTAMP
+            - STRING
+            - INTEGER
+            - FLOAT
+            - DOUBLE
+            - ARRAY
+      required:
+        - name
+        - type
+    PagedSummaryTable:
+      allOf:
+        - type: object
+          properties:
+            lastEvaluatedDate:
+              type: string
+        - $ref: '#/components/schemas/Pagination'
+        - $ref: '#/components/schemas/PagedSummaryTableData'
+    PagedSummaryTableData:
+      type: object
+      properties:
+        schema:
+          $ref: '#/components/schemas/SummaryDataSchema'
+        data:
+          $ref: '#/components/schemas/SummaryDataRows'
+    SummaryDataSchema:
+      type: object
+      properties:
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
+    SummaryDataRows:
+      type: array
+      items:
+        type: array
+        items: { }
+
+
+    ##### Devices & DeviceGroups
+    deviceGroupId:
+      description: Device Group ID.
+      type: integer
+      format: int64
+    deviceId:
+      description: Internal Device ID.
+      type: integer
+      format: int32
+      example: 10407778
+      minimum: 0
+    Device:
+      type: object
+      required:
+        - iccid
+        - imsi
+      properties:
+        iccid:
+          type: string
+          description: iccid of device
+          maxLength: 50
+        imsi:
+          type: string
+          description: imsi of device
+          maxLength: 50
+    DeviceImeiChange:
+      type: object
+      properties:
+        deviceId:
+          $ref: '#/components/schemas/deviceId'
+        iccid:
+          $ref: '#/components/schemas/iccid'
+        imei:
+          $ref: '#/components/schemas/imei'
+        previousImei:
+          $ref: '#/components/schemas/imei'
+        changeTime:
+          $ref: '#/components/schemas/dateTime'
+        deviceType:
+          description: Device type info derived from IMEI/TAC.
+          type: string
+          example: Modem
+        deviceBrand:
+          description: Device brand info derived from IMEI/TAC.
+          type: string
+          example: Apple
+        deviceModel:
+          description: Device model derived info from IMEI/TAC.
+          type: string
+          example: iPhone 7
+      required:
+        - iccid
+        - imei
+        - previousImei
+        - changeTime
+    DeviceCustomField:
+      type: object
+      description: Information about custom fields. Fill if deviceAssigningType = AUTO_BY_CUSTOM_FIELDS, empty otherwise
+      required:
+        - customFieldId
+        - customFieldValue
+      properties:
+        customFieldId:
+          type: integer
+          format: int64
+          description: custom field id of group
+        customFieldValue:
+          type: string
+          description: custom field value of group
+          maxLength: 256
+    DeviceTACCodeInfo:
+      type: object
+      properties:
+        tac:
+          type: string
+        type:
+          type: string
+        brand:
+          type: string
+        model:
+          type: string
+        totalDevices:
+          type: integer
+        deviceGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceGroupInfo'
+    DeviceGroupAssigningType:
+      type: string
+      description: assign type
+      enum:
+        - AUTO_BY_TAC_CODES
+        - AUTO_BY_CUSTOM_FIELDS
+        - MANUALLY
+        - AUTO_BY_SERVICE_PLAN
+      example: AUTO_BY_TAC_CODES
+    DeviceGroupType:
+      type: string
+      enum:
+        - REPORTING
+        - ENFORCEMENT
+    DeviceGroupQueryRequest:
+      type: object
+      description: Search for name, assign type and created time range (set to null if don't want to filter)
+      properties:
+        name:
+          type: string
+          maxLength: 1024
+        deviceAssigningType:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceGroupAssigningType"
+        deviceGroupType:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceGroupType"
+        enforcementRuleId:
+          type: array
+          items:
+            type: integer
+        enforcementRuleStatus:
+          type: array
+          items:
+            type: string
+        rankingMin:
+          type: integer
+        rankingMax:
+          type: integer
+        totalMin:
+          type: integer
+        totalMax:
+          type: integer
+        tac:
+          type: array
+          items:
+            type: string
+        brand:
+          type: array
+          items:
+            type: string
+        model:
+          type: array
+          items:
+            type: string
+        type:
+          type: array
+          items:
+            type: string
+        enforcementRuleApn:
+          type: array
+          items:
+            type: string
+        enforcementRuleApnNot:
+          type: array
+          items:
+            type: string
+        isCountingActiveOnly:
+          type: boolean
+          default: true
+    DeviceGroupInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        colorCode:
+          type: string
+        deviceGroupType:
+          type: string
+    DeviceGroup:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: integer
+        - $ref: '#/components/schemas/DeviceGroupBase'
+    DeviceGroupResourceBase:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        deviceAssigningType:
+          $ref: "#/components/schemas/DeviceGroupAssigningType"
+        customFields:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceCustomField"
+          description: Information about custom fields. Fill if deviceAssigningType = AUTO_BY_CUSTOM_FIELDS, empty otherwise
+        devices:
+          type: array
+          description: Information about devices. Fill if deviceAssigningType = MANUALLY, empty otherwise
+          items:
+            $ref: "#/components/schemas/Device"
+        tacCodes:
+          type: array
+          items:
+            type: string
+          description: Information about tac codes. Fill if deviceAssigningType = AUTO_BY_TAC_CODES, empty otherwise
+        servicePlan:
+          type: string
+        ranking:
+          type: integer
+    DeviceGroupCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/DeviceGroupResourceBase'
+        - type: object
+          properties:
+            deviceGroupType:
+              $ref: "#/components/schemas/DeviceGroupType"
+    DeviceGroupUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/DeviceGroupResourceBase'
+    DeviceGroupBase:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        colorCode:
+          type: string
+        deviceAssigningType:
+          $ref: "#/components/schemas/DeviceGroupAssigningType"
+        customFields:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceCustomField"
+        devices:
+          type: array
+          description: Information about devices. Fill if deviceAssigningType = MANUALLY, empty otherwise
+          items:
+            $ref: "#/components/schemas/Device"
+        tacCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceTACCodeInfo'
+        totalDevices:
+          type: integer
+        createdBy:
+          type: string
+        createdTime:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+        updatedTime:
+          type: string
+          format: date-time
+        ranking:
+          type: integer
+        deviceGroupType:
+          $ref: "#/components/schemas/DeviceGroupType"
+        servicePlan:
+          type: string
+        enforcementRules:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnforcementRuleBase"
+    DeviceGroupActivityLog:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        userId:
+          type: string
+        activity:
+          type: string
+        target:
+          type: string
+        deviceGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceGroupInfo"
+    PagedDeviceGroupTable:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeviceGroup'
+    PagedDeviceImeiChanges:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              description: Array of IMEI change events
+              items:
+                $ref: '#/components/schemas/DeviceImeiChange'
+    PagedDeviceGroupActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/DeviceGroupActivityLog"
+    DeviceGroupActivityLogQuery:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLogQueryRequest'
+
+    ##### Activity Logs
+    BaseActivityLogQueryRequest:
+      type: object
+      properties:
+        activity:
+          type: string
+        target:
+          type: string
+        userId:
+          type: string
+    BaseActivityLog:
+      type: object
+      properties:
+        timestamp:
+          $ref: '#/components/schemas/dateTime'
+        activity:
+          type: string
+        target:
+          type: string
+        userId:
+          type: string
+
+    ##### Enforcement (Applications/Protection Policies/Enforcement Rules)
+    applicationId:
+      description: Application identifier
+      type: integer
+      format: int64
+      example: 10407
+    ApplicationBase:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        protocols:
+          type: array
+          items:
+            type: string
+            example: TCP
+          example: [ TCP, UDP ]
+        endpoints:
+          type: array
+          items:
+            type: string
+            example: "10.104.17.101"
+        endpointFQDNs:
+          type: array
+          items:
+            $ref: "#/components/schemas/endpointFQDN"
+        ports:
+          type: array
+          items:
+            type: string
+            example: 8080
+    ApplicationCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/ApplicationBase'
+    ApplicationUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/ApplicationBase'
+    ApplicationsQueryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 180
+        endpoints:
+          type: array
+          items:
+            type: string
+        endpointFQDN:
+          $ref: "#/components/schemas/endpointFQDN"
+        ports:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        enforcementRuleId:
+          type: integer
+        enforcementRuleName:
+          type: string
+    PagedApplications:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Application'
+    Application:
+      allOf:
+        - $ref: '#/components/schemas/ApplicationBase'
+        - type: object
+          properties:
+            id:
+              $ref: '#/components/schemas/applicationId'
+            status:
+              type: string
+            createdBy:
+              type: string
+            createdTime:
+              type: string
+              format: date-time
+            updatedBy:
+              type: string
+            updatedTime:
+              type: string
+              format: date-time
+    ApplicationActivityLogQuery:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLogQueryRequest'
+    ApplicationActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLog'
+    PagedApplicationActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/ApplicationActivityLog"
+
+    protectionPolicyId:
+      description: Protection Policy identifier
+      type: integer
+      format: int64
+      example: 21091
+    ProtectionPolicyBase:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        enforcementType:
+          type: string
+          description: "Enforcement type applied to this protection policy, can be ALLOWED_TRAFFIC or BLOCKED_TRAFFIC"
+          enum:
+            - ALLOWED_TRAFFIC
+            - BLOCKED_TRAFFIC
+          example: "ALLOWED_TRAFFIC"
+        protocols:
+          type: array
+          items:
+            type: string
+            example: TCP
+          example: [ TCP, UDP ]
+        endpoints:
+          type: array
+          items:
+            type: string
+            example: "10.104.17.101"
+        endpointFQDNs:
+          type: array
+          items:
+            $ref: "#/components/schemas/endpointFQDN"
+        ports:
+          type: array
+          items:
+            type: string
+            example: 8080
+    ProtectionPolicyCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/ProtectionPolicyBase'
+    ProtectionPolicyUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/ProtectionPolicyBase'
+    ProtectionPoliciesQueryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 180
+        endpoints:
+          type: array
+          items:
+            type: string
+        enforcementType:
+          type: string
+        endpointFQDN:
+          $ref: "#/components/schemas/endpointFQDN"
+        ports:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        enforcementRuleId:
+          type: integer
+        enforcementRuleName:
+          type: string
+    PagedProtectionPolicies:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProtectionPolicy'
+    ProtectionPolicy:
+      allOf:
+        - $ref: '#/components/schemas/ProtectionPolicyBase'
+        - type: object
+          properties:
+            id:
+              $ref: '#/components/schemas/protectionPolicyId'
+            status:
+              type: string
+            createdBy:
+              type: string
+            createdTime:
+              type: string
+              format: date-time
+            updatedBy:
+              type: string
+            updatedTime:
+              type: string
+              format: date-time
+    ProtectionPolicyActivityLogQuery:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLogQueryRequest'
+    ProtectionPolicyActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLog'
+    PagedProtectionPolicyActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProtectionPolicyActivityLog"
+
+    enforcementRuleId:
+      description: Enforcement Rule identifier
+      type: integer
+      format: int64
+      example: 5102010
+    malwareProtectionLevel:
+      type: string
+      enum:
+        - NONE
+        - ESSENTIAL
+        - AGGRESSIVE
+        - COMPREHENSIVE
+    enforcementRuleStatus:
+      type: string
+      enum:
+        - ACTIVATED
+        - DEACTIVATED
+    EnforcementRuleUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        apn:
+          type: string
+        malwareProtectionLevel:
+          $ref: '#/components/schemas/malwareProtectionLevel'
+        applications:
+          type: array
+          items:
+            $ref: '#/components/schemas/applicationId'
+        protectionPolicies:
+          type: array
+          items:
+            $ref: '#/components/schemas/protectionPolicyId'
+        deviceGroupId:
+          $ref: '#/components/schemas/deviceGroupId'
+      required:
+        - name
+        - apn
+        - malwareProtectionLevel
+        - applications
+        - protectionPolicies
+    EnforcementRuleCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/EnforcementRuleUpdateRequest'
+        - type: object
+          properties:
+            enforce:
+              type: boolean
+              description: The enforcement rule should be enforced immediately after creation
+              default: false
+    EnforcementRulesQueryRequest:
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        deviceGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/deviceGroupId'
+        apns:
+          type: array
+          items:
+            type: string
+        malwareProtectionLevel:
+          type: array
+          items:
+            $ref: '#/components/schemas/malwareProtectionLevel'
+        status:
+          type: array
+          items:
+            $ref: '#/components/schemas/enforcementRuleStatus'
+        applications:
+          type: array
+          items:
+            $ref: '#/components/schemas/applicationId'
+        protectionPolicies:
+          type: array
+          items:
+            $ref: '#/components/schemas/protectionPolicyId'
+    EnforcementRuleBase:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/enforcementRuleId'
+        name:
+          type: string
+        status:
+          type: string
+        apn:
+          type: string
+    PagedEnforcementRules:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/EnforcementRule'
+    EnforcementRule:
+      allOf:
+        - $ref: '#/components/schemas/EnforcementRuleBase'
+        - type: object
+          properties:
+            malwareProtectionLevel:
+              $ref: '#/components/schemas/malwareProtectionLevel'
+            applications:
+              type: array
+              items:
+                $ref: '#/components/schemas/applicationId'
+            protectionPolicies:
+              type: array
+              items:
+                $ref: '#/components/schemas/protectionPolicyId'
+            deviceGroupId:
+              $ref: '#/components/schemas/deviceGroupId'
+            createdBy:
+              type: string
+            createdTime:
+              type: string
+              format: date-time
+            updatedBy:
+              type: string
+            updatedTime:
+              type: string
+              format: date-time
+    EnforcementRuleActivityLogQuery:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLogQueryRequest'
+    EnforcementRuleActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/BaseActivityLog'
+        - type: object
+          properties:
+            error:
+              type: string
+
+    PagedEnforcementRuleActivityLog:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/EnforcementRuleActivityLog"
+
+    ##### Flows
+    BlockedIPFlowsSearchRequest:
+      type: object
+      properties:
+        flowType:
+          type: string
+        blockTypes:
+          type: array
+          items:
+            type: string
+        blockedBy:
+          type: string
+          description: Name of the enforcement rule that blocked the flow
+        destinationIp:
+          type: string
+        destinationPorts:
+          type: array
+          items:
+            type: string
+        networkProtocols:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        enforcementRule:
+          type: string
+        iccid:
+          type: string
+        imsi:
+          type: string
+        msisdn:
+          type: string
+        sourceIp:
+          type: string
+        sourcePorts:
+          type: array
+          items:
+            type: string
+        destinationFQDN:
+          type: string
+        confidenceLevel:
+          type: integer
+        threatLevel:
+          type: integer
+        threatType:
+          type: string
+        threatClass:
+          type: string
+        threatDiagnostic:
+          type: string
+        deviceGroup:
+          type: string
+        servicePlan:
+          type: string
+        servicePlanId:
+          type: string
+        countryOfDevice:
+          type: string
+        mccMnc:
+          type: string
+        deviceType:
+          type: string
+    AllowedIPFlowsSearchRequest:
+      type: object
+      properties:
+        flowType:
+          type: string
+        allowedBy:
+          type: string
+          description: Name of the application
+        destinationIp:
+          type: string
+        destinationPorts:
+          type: array
+          items:
+            type: string
+        networkProtocols:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        enforcementRule:
+          type: string
+        iccid:
+          $ref: "#/components/schemas/iccid"
+        imsi:
+          $ref: "#/components/schemas/imsi"
+        msisdn:
+          $ref: "#/components/schemas/msisdn"
+        sourceIp:
+          type: string
+        sourcePorts:
+          type: array
+          items:
+            type: string
+        destinationFQDN:
+          type: string
+        deviceGroup:
+          type: string
+        allowedTypes:
+          type: array
+          items:
+            type: string
+        servicePlan:
+          type: string
+        servicePlanId:
+          type: string
+        countryOfDevice:
+          type: string
+        mccMnc:
+          type: string
+        deviceType:
+          type: string
+    BlockedFlowsSearchRequest:
+      type: object
+      properties:
+        blockTypes:
+          type: array
+          items:
+            type: string
+        blockedBy:
+          type: string
+          description: Name of the enforcement rule that blocked the flow
+        destinationIp:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        destinationPorts:
+          type: array
+          items:
+            type: string
+        networkProtocols:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        enforcementRule:
+          type: string
+        iccid:
+          $ref: "#/components/schemas/iccid"
+        imsi:
+          $ref: "#/components/schemas/imsi"
+        msisdn:
+          $ref: "#/components/schemas/msisdn"
+        sourceIp:
+          type: string
+        sourcePorts:
+          type: array
+          items:
+            type: string
+        destinationFQDN:
+          type: string
+        confidenceLevel:
+          type: integer
+        threatLevel:
+          type: integer
+        threatType:
+          type: string
+        threatClass:
+          type: string
+        threatDiagnostic:
+          type: string
+        deviceGroup:
+          type: string
+        servicePlan:
+          type: string
+        servicePlanId:
+          type: string
+        countryOfDevice:
+          type: string
+        mccMnc:
+          type: string
+        deviceType:
+          type: string
+    AllowedTrafficSearchRequest:
+      type: object
+      properties:
+        allowedBy:
+          type: string
+          description: Name of the application
+        destinationIp:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        destinationPorts:
+          type: array
+          items:
+            type: string
+        networkProtocols:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        enforcementRule:
+          type: string
+        iccid:
+          $ref: "#/components/schemas/iccid"
+        imsi:
+          $ref: "#/components/schemas/imsi"
+        msisdn:
+          $ref: "#/components/schemas/msisdn"
+        sourceIp:
+          type: string
+        sourcePorts:
+          type: array
+          items:
+            type: string
+        destinationFQDN:
+          type: string
+        deviceGroup:
+          type: string
+        allowedTypes:
+          type: array
+          items:
+            type: string
+        servicePlan:
+          type: string
+        servicePlanId:
+          type: string
+        countryOfDevice:
+          type: string
+        mccMnc:
+          type: string
+        deviceType:
+          type: string
+    BlockedIPFlowData:
+      type: object
+      properties:
+        flowType:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        destinationIp:
+          type: string
+        destinationFQDN:
+          type: string
+        blockedBy:
+          type: string
+          description: Name of the enforcement rule that blocked the flow
+        blockedById:
+          type: integer
+          format: int64
+        blockType:
+          type: string
+        destinationPort:
+          type: string
+        networkProtocol:
+          type: string
+        protocol:
+          type: string
+        enforcementRuleName:
+          type: string
+        enforcementRuleId:
+          type: integer
+          format: int64
+        deviceGroup:
+          $ref: "#/components/schemas/DeviceGroupInfo"
+        iccid:
+          $ref: "#/components/schemas/iccid"
+        imsi:
+          $ref: "#/components/schemas/imsi"
+        msisdn:
+          $ref: "#/components/schemas/msisdn"
+        sourceIp:
+          type: string
+        sourcePort:
+          type: string
+        confidenceLevel:
+          type: integer
+        threatLevel:
+          type: integer
+        threatClass:
+          type: string
+        threatDiagnostic:
+          type: string
+        servicePlan:
+          type: string
+        servicePlanId:
+          type: string
+        countryOfDevice:
+          type: string
+        mccMnc:
+          type: integer
+          format: int64
+        deviceType:
+          type: string
+    AllowedIPFlowData:
+      type: object
+      properties:
+        flowType:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        allowedBy:
+          type: string
+        allowedType:
+          type: string
+        applicationId:
+          type: integer
+          format: int64
+        destinationIp:
+          type: string
+        destinationFQDN:
+          type: string
+        destinationPort:
+          type: string
+        networkProtocol:
+          type: string
+        protocol:
+          type: string
+        enforcementRuleName:
+          type: string
+        enforcementRuleId:
+          type: integer
+          format: int64
+        deviceGroup:
+          $ref: "#/components/schemas/DeviceGroupInfo"
+        iccid:
+          $ref: "#/components/schemas/iccid"
+        imsi:
+          $ref: "#/components/schemas/imsi"
+        msisdn:
+          $ref: "#/components/schemas/msisdn"
+        sourceIp:
+          type: string
+        sourcePort:
+          type: string
+        servicePlan:
+          type: string
+        servicePlanId:
+          type: string
+        countryOfDevice:
+          type: string
+        mccMnc:
+          type: integer
+          format: int64
+        deviceType:
+          type: string
+    PagedFlows:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                oneOf:
+                  - $ref: '#/components/schemas/BlockedIPFlowData'
+                  - $ref: '#/components/schemas/AllowedIPFlowData'
+                discriminator:
+                  propertyName: flowType
+                  mapping:
+                    BLOCKED: '#/components/schemas/BlockedIPFlowData'
+                    ALLOWED: '#/components/schemas/AllowedIPFlowData'
+    PagedAllowedTraffic:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AllowedTrafficData'
+    AllowedTrafficData:
+      type: object
+      properties:
+        isParentComponent:
+          type: boolean
+        parentAccountId:
+          type: integer
+          format: int64
+        allowedBy:
+          type: string
+        allowedType:
+          type: string
+        applicationId:
+          type: integer
+          format: int64
+        enforcementRules:
+          type: integer
+          format: int64
+        lastActivity:
+          type: string
+          format: date-time
+        totalFqdn:
+          type: integer
+          format: int64
+        totalIp:
+          type: integer
+          format: int64
+        totalEnforcementRule:
+          type: integer
+          format: int64
+        flowCount:
+          type: integer
+          format: int64
+        deviceCount:
+          type: integer
+          format: int64
+        fromDevices:
+          type: integer
+          format: int64
+        toDevices:
+          type: integer
+          format: int64
+        flowsFromDevices:
+          type: integer
+          format: int64
+        flowsToDevices:
+          type: integer
+          format: int64
+        totalData:
+          type: number
+        usages:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllowedTrafficUsageDetail'
+    AllowedTrafficUsageDetail:
+      type: object
+      properties:
+        destinationIp:
+          type: string
+        destinationFQDN:
+          type: string
+        networkProtocol:
+          type: string
+        protocol:
+          type: string
+        port:
+          type: string
+        flowCount:
+          type: integer
+          format: int64
+        deviceCount:
+          type: integer
+          format: int64
+        fromDevices:
+          type: integer
+          format: int64
+        toDevices:
+          type: integer
+          format: int64
+        flowsToDevices:
+          type: integer
+          format: int64
+        flowsFromDevices:
+          type: integer
+          format: int64
+        totalData:
+          type: number
+    PagedBlockedFlows:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/BlockedFlowData'
+    BlockedFlowData:
+      type: object
+      properties:
+        isParentComponent:
+          type: boolean
+        parentAccountId:
+          type: integer
+          format: int64
+        blockedById:
+          type: integer
+          format: int64
+        enforcementRuleId:
+          type: array
+          items:
+            type: integer
+            format: int4
+        blockedBy:
+          type: string
+        blockedType:
+          type: string
+        totalIp:
+          type: integer
+          format: int64
+        totalFQDN:
+          type: integer
+          format: int64
+        sessionAttempts:
+          type: integer
+          format: int64
+        devicesCount:
+          type: integer
+          format: int64
+        attemptsFromDevices:
+          type: integer
+          format: int64
+        attemptsToDevices:
+          type: integer
+          format: int64
+        totalFlowsUp:
+          type: integer
+          format: int64
+        totalFlowsDown:
+          type: integer
+          format: int64
+        blockedFlows:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockedFlowDetail'
+    BlockedFlowDetail:
+      type: object
+      properties:
+        destinationFQDN:
+          type: string
+          example: dns.google
+        ipAddresses:
+          type: array
+          items:
+            type: string
+            example: 1.1.1.1
+        networkProtocol:
+          type: string
+          example: TCP
+        protocol:
+          type: string
+          example: HTTPS
+        port:
+          type: string
+          example: '80'
+        sessionAttempts:
+          type: integer
+          example: 53
+        blockedDevices:
+          type: integer
+          example: 222
+        attemptTime:
+          type: string
+          format: date-time
+          example: '2025-10-01T23:59:02Z'
+        enforcementRule:
+          type: string
+        totalFlowsUp:
+          type: integer
+          format: int64
+        totalFlowsDown:
+          type: integer
+          format: int64
+        attemptsFromDevices:
+          type: integer
+          format: int64
+        attemptsToDevices:
+          type: integer
+          format: int64
+        confidenceLevel:
+          type: integer
+        threatLevel:
+          type: integer
+        threatClass:
+          type: string
+        threatDiagnostic:
+          type: string
+
+    ##### Security Reports
+    SecurityReportAppendixRequest:
+      title: SecurityReportAppendixRequest
+      type: object
+      required:
+        - year
+        - month
+      properties:
+        year:
+          type: integer
+          title: Year
+        month:
+          type: integer
+          title: Month
+        category:
+          type: string
+          title: Category
+        security_item:
+          type: string
+          title: Security Item
+        iccid:
+          type: string
+          title: Iccid
+        imsi:
+          type: string
+          title: Imsi
+        start_ts:
+          type: string
+          title: Start Ts
+        end_ts:
+          type: string
+          title: End Ts
+        device_location:
+          type: string
+          title: Device Location
+        device_type:
+          type: string
+          title: Device Type
+        network_protocol:
+          type: string
+          title: Network Protocol
+        protocol:
+          type: string
+          title: Protocol
+        unencrypted_protocol:
+          type: string
+          title: Unencrypted Protocol
+        server_port:
+          type: string
+          title: Server Port
+        endpoint_location:
+          type: string
+          title: Endpoint Location
+        fqdn:
+          type: string
+          title: Fqdn
+        dns_server_ip:
+          type: string
+          title: Dns Server Ip
+        scanned_subnet_port:
+          type: string
+          title: Scanned Subnet Port
+        device_group_id:
+          items:
+            type: string
+          type: array
+          title: Device Group Id
+    SecurityReportAppendixTrigger:
+      properties:
+        request_by:
+          type: string
+          title: Request By
+        account_name:
+          type: string
+          title: Account Name
+      type: object
+      title: SecurityReportAppendixTrigger
+    PagedSecurityReportAppendix:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SecurityEventData'
+    SecurityReportSummary:
+      properties:
+        total_low:
+          type: integer
+          title: Total Low
+        total_medium:
+          type: integer
+          title: Total Medium
+        total_high:
+          type: integer
+          title: Total High
+        overall_severity:
+          $ref: '#/components/schemas/Severity'
+        summary_text:
+          type: string
+          title: Summary Text
+        disclaimer:
+          type: string
+          title: Disclaimer
+        disclaimer_no2:
+          type: string
+          title: Disclaimer No2
+        sections:
+          $ref: '#/components/schemas/SectionsSummary'
+        device_activated_summary:
+          title: Device Activated Summary
+          type: array
+          items:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items: { }
+        trend_low:
+          $ref: '#/components/schemas/TrendData'
+        trend_medium:
+          $ref: '#/components/schemas/TrendData'
+        trend_high:
+          $ref: '#/components/schemas/TrendData'
+      type: object
+      required:
+        - total_low
+        - total_medium
+        - total_high
+        - overall_severity
+        - summary_text
+        - disclaimer
+        - disclaimer_no2
+        - sections
+        - device_activated_summary
+        - trend_low
+        - trend_medium
+        - trend_high
+      title: SecurityReportSummary
+    SecurityReportDetail:
+      properties:
+        sections:
+          $ref: '#/components/schemas/SecurityReportSections'
+        category:
+          $ref: '#/components/schemas/SecurityReportCategory'
+      type: object
+      required:
+        - sections
+        - category
+      title: SecurityReportDetail
+    SecurityReportCategory:
+      properties:
+        inventory_control_devices:
+          type: string
+          title: Inventory Control Devices
+        data_protection:
+          type: string
+          title: Data Protection
+        net_work_security:
+          type: string
+          title: Net Work Security
+        application_security:
+          type: string
+          title: Application Security
+        device_security:
+          type: string
+          title: Device Security
+      type: object
+      required:
+        - inventory_control_devices
+        - data_protection
+        - net_work_security
+        - application_security
+        - device_security
+      title: Category
+    SecurityReportSections:
+      properties:
+        inventory_control_devices:
+          items:
+            $ref: '#/components/schemas/SecurityReportSectionItem'
+          type: array
+          title: Inventory Control Devices
+        data_protection:
+          items:
+            $ref: '#/components/schemas/SecurityReportSectionItem'
+          type: array
+          title: Data Protection
+        net_work_security:
+          items:
+            $ref: '#/components/schemas/SecurityReportSectionItem'
+          type: array
+          title: Net Work Security
+        application_security:
+          items:
+            $ref: '#/components/schemas/SecurityReportSectionItem'
+          type: array
+          title: Application Security
+        device_security:
+          items:
+            $ref: '#/components/schemas/SecurityReportSectionItem'
+          type: array
+          title: Device Security
+      type: object
+      required:
+        - inventory_control_devices
+        - data_protection
+        - net_work_security
+        - application_security
+        - device_security
+      title: Sections
+    SecurityReportSectionItem:
+      properties:
+        sec_no:
+          type: string
+          title: Sec No
+        tds:
+          items:
+            $ref: '#/components/schemas/TdsItem'
+          type: array
+          title: Tds
+        alert_type:
+          type: string
+          title: Event Type
+      type: object
+      required:
+        - sec_no
+        - tds
+      title: SectionItem
+    SecurityReportDeviceUsage:
+      properties:
+        total:
+          type: integer
+          title: Total
+        data:
+          items:
+            items:
+              $ref: '#/components/schemas/DeviceUsageData'
+            type: array
+          type: array
+          title: Rows
+      type: object
+      required:
+        - total
+        - data
+      title: DeviceUsageResponse
+    SecurityReportEndpoint:
+      properties:
+        total:
+          type: integer
+          title: Total
+        data:
+          items:
+            items:
+              $ref: '#/components/schemas/EndpointData'
+            type: array
+          type: array
+          title: Data
+      type: object
+      required:
+        - total
+        - data
+      title: EndpointResponse
+    SecurityEventData:
+      type: object
+      title: SecurityEventData
+      properties:
+        account_id:
+          type: string
+          title: Account Id
+        report_date:
+          type: string
+          format: date
+          title: Report Date
+        security_item:
+          type: string
+          title: Security Item
+        iccid:
+          type: string
+          title: Iccid
+        category:
+          type: string
+          title: Category
+        current_ts:
+          type: string
+          format: date-time
+          title: Current Ts
+        imsi:
+          type: string
+          title: Imsi
+        device_location:
+          type: string
+          title: Device Location
+        device_type:
+          type: string
+          title: Device Type
+        network_protocol:
+          type: string
+          title: Network Protocol
+        protocol:
+          type: string
+          title: Protocol
+        server_port:
+          type: string
+          title: Server Port
+        endpoint_location:
+          type: string
+          title: Endpoint Location
+        fqdn:
+          type: string
+          title: Fqdn
+        dns_server_ip:
+          type: string
+          title: Dns Server Ip
+        scanned_subnet_port:
+          type: string
+          title: Scanned Subnet Port
+        unencrypted_protocol:
+          type: string
+          title: Unencrypted Protocol
+        device_groups:
+          type: array
+          title: Device Groups
+          items:
+            type: object
+            properties:
+              group_id:
+                type: string
+                title: Group Id
+              name:
+                type: string
+                title: Name
+              color_code:
+                type: string
+                title: Color Code
+              device_assigning_type:
+                type: string
+                title: Device Assigning Type
+      required:
+        - account_id
+        - report_date
+        - security_item
+        - iccid
+        - category
+        - current_ts
+        - imsi
+        - device_location
+        - device_type
+        - network_protocol
+        - protocol
+        - server_port
+        - endpoint_location
+        - fqdn
+        - dns_server_ip
+        - scanned_subnet_port
+        - unencrypted_protocol
+        - device_groups
+    EndpointData:
+      properties:
+        endpoint_country:
+          type: string
+          title: Endpoint Country
+        device_count:
+          type: integer
+          title: Device Count
+        endpoint_count:
+          type: integer
+          title: Endpoint Count
+        data_usage_bytes:
+          type: integer
+          title: Data Usage Bytes
+        ip_flows:
+          type: integer
+          title: Ip Flows
+      type: object
+      required:
+        - endpoint_country
+        - device_count
+        - endpoint_count
+        - data_usage_bytes
+        - ip_flows
+      title: EndpointData
+    DeviceUsageData:
+      properties:
+        active_devices:
+          type: integer
+          title: Active Devices
+        device_country:
+          type: string
+          title: Device Country
+        data_usage_bytes:
+          type: integer
+          title: Data Usage Bytes
+      type: object
+      required:
+        - active_devices
+        - device_country
+        - data_usage_bytes
+      title: DeviceUsageData
+    Severity:
+      type: string
+      enum:
+        - High
+        - Medium
+        - Low
+      title: Severity
+      example: High
+    SectionsSummary:
+      properties:
+        application_security:
+          $ref: '#/components/schemas/SectionSummary'
+        data_protection:
+          $ref: '#/components/schemas/SectionSummary'
+        device_security:
+          $ref: '#/components/schemas/SectionSummary'
+        inventory_control_devices:
+          $ref: '#/components/schemas/SectionSummary'
+        net_work_security:
+          $ref: '#/components/schemas/SectionSummary'
+      type: object
+      required:
+        - application_security
+        - data_protection
+        - device_security
+        - inventory_control_devices
+        - net_work_security
+      title: SectionsSummary
+    SectionSummary:
+      properties:
+        high:
+          type: integer
+          title: High
+        medium:
+          type: integer
+          title: Medium
+        low:
+          type: integer
+          title: Low
+        highest_severity:
+          $ref: '#/components/schemas/Severity'
+        recommended_action:
+          type: string
+          title: Recommended Action
+      type: object
+      required:
+        - high
+        - medium
+        - low
+        - highest_severity
+        - recommended_action
+      title: SectionSummary
+    TdsItem:
+      properties:
+        content:
+          type: string
+          title: Content
+        column:
+          type: string
+          title: Column
+        direction:
+          type: string
+          title: Direction
+        current_value:
+          type: number
+          title: Current Value
+        previous_value:
+          type: number
+          title: Previous Value
+      type: object
+      required:
+        - content
+        - column
+      title: TdsItem
+    TrendData:
+      properties:
+        content:
+          type: string
+          title: Content
+        direction:
+          $ref: '#/components/schemas/TrendDirection'
+        current_value:
+          type: integer
+          title: Current Value
+        previous_value:
+          type: integer
+          title: Previous Value
+      type: object
+      required:
+        - content
+        - direction
+        - current_value
+        - previous_value
+      title: TrendData
+      description: Schema for a trend object.
+    TrendDirection:
+      type: string
+      enum:
+        - trend_up
+        - trend_down
+        - trend_flat
+      title: TrendDirection
+
+  responses:
+    '400':
+      description: Bad Request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 400
+            message: Bad Request
+            timestamp: 2025-06-01 13:28:03.967
+            path: /watchtower/v1/...
+            traceId: c3db9d7a432317363c8bc5ddb5aadf4b
+    '401':
+      description: Not authorized.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 401
+            message: Unauthorized
+            timestamp: 2025-06-01 13:28:03.967
+            path: /watchtower/v1/...
+            traceId: c3db9d7a432317363c8bc5ddb5aadf4b
+    '403':
+      description: Forbidden.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 403
+            message: Forbidden
+            timestamp: 2025-06-01 13:28:03.967
+            path: /watchtower/v1/...
+            traceId: c3db9d7a432317363c8bc5ddb5aadf4b
+    '404':
+      description: Not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 404
+            message: Not found
+            timestamp: 2025-06-01 13:28:03.967
+            path: /watchtower/v1/...
+            traceId: c3db9d7a432317363c8bc5ddb5aadf4b
+    '413':
+      description: Requested data too large
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 413
+            message: Requested data too large. Please use /watchtower/v1/.../export for requesting larger amounts of data
+            timestamp: 2025-06-01 13:28:03.967
+            path: /watchtower/v1/...
+            traceId: c3db9d7a432317363c8bc5ddb5aadf4b
+    '429':
+      description: Too many requests.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 429
+            message: "Rate Limit Exceeded (XX) for clientId: XXXXXX. Please retry after XXX seconds"
+            timestamp: 2025-06-01 13:28:03.967
+            path: /watchtower/v1/...
+            traceId: c3db9d7a432317363c8bc5ddb5aadf4b
+    '500':
+      description: Internal Server Error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 500
+            message: Internal Server Error
+            timestamp: 2025-06-01 13:28:03.967
+            path: /watchtower/v1/...
+            traceId: c3db9d7a432317363c8bc5ddb5aadf4b
+
